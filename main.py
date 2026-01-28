@@ -157,7 +157,10 @@ def main():
         try:
             current_price = scrape_price()
 
-            if previous_price is None or current_price != previous_price:
+            if previous_price is None:
+                print(f"Initial price: {current_price}")
+                previous_price = current_price
+            elif current_price != previous_price:
                 print(f"Price changed: {previous_price} → {current_price}")
                 update_all_webhooks(current_price, previous_price)
                 previous_price = current_price
