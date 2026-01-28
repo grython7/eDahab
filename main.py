@@ -1,12 +1,15 @@
+import json
 import time
 import os
 import re
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
-PUSHCUT_WEBHOOK = os.environ.get("PUSHCUT_WEBHOOK", "https://api.pushcut.io/7iCjbwwLsNbxZaNnRLqe9/widgets/eDahab?content=Gold")
+load_dotenv()
+
+WEBHOOKS = json.loads(os.environ.get("WEBHOOKS", "[]"))
 EDAHAH_URL = "https://edahabapp.com/prices-dashboard"
-
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "180"))
 
 GREEN = "rgba(34.12%, 96.86%, 0.00%, 1.00)"
@@ -37,57 +40,82 @@ def scrape_price():
     return float(m.group(1).replace(",", ""))
 
 
-def update_pushcut_widget(current_price, previous_price):
-    if previous_price is None:
-        delta = 0
-        delta_percent = 0
-    else:
-        delta = current_price - previous_price
-        delta_percent = (delta / previous_price) * 100 if previous_price else 0
+def update_webhook(webhook, current_price, previous_price):
+    url = webhook["url"]
+    webhook_type = webhook.get("type", "homescreen")
+    name = webhook.get("name", url)
 
-    if delta > 0:
-        arrow = "arrow.up"
-        color = GREEN
-    elif delta < 0:
-        arrow = "arrow.down"
-        color = RED
-    else:
-        arrow = "minus"
-        color = GRAY
-
-    delta_display = f"{abs(delta):.2f} ({abs(delta_percent):.2f}%)"
-
-    payload = {
-        "inputs": {
-            "input0": f"{current_price:.0f}",
-            "input1": arrow,
-            "input2": delta_display,
-            "input3": color,
-            "input4": color
+    if webhook_type == "lockscreen":
+        payload = {
+            "inputs": {
+                "input0": f"{current_price:.0f}"
+            }
         }
-    }
+    else:
+        if previous_price is None:
+            delta = 0
+            delta_percent = 0
+        else:
+            delta = current_price - previous_price
+            delta_percent = (delta / previous_price) * 100 if previous_price else 0
+
+        if delta > 0:
+            arrow = "arrow.up"
+            color = GREEN
+        elif delta < 0:
+            arrow = "arrow.down"
+            color = RED
+        else:
+            arrow = "minus"
+            color = GRAY
+
+        delta_display = f"{abs(delta):.2f} ({abs(delta_percent):.2f}%)"
+
+        payload = {
+            "inputs": {
+                "input0": f"{current_price:.0f}",
+                "input1": arrow,
+                "input2": delta_display,
+                "input3": color,
+                "input4": color
+            }
+        }
 
     r = requests.post(
-        PUSHCUT_WEBHOOK,
+        url,
         json=payload,
         headers={"Content-Type": "application/json"},
         timeout=20
     )
     r.raise_for_status()
+    print(f"  [{name}] OK")
+
+
+def update_all_webhooks(current_price, previous_price):
+    for webhook in WEBHOOKS:
+        try:
+            update_webhook(webhook, current_price, previous_price)
+        except Exception as e:
+            name = webhook.get("name", webhook["url"])
+            print(f"  [{name}] Error: {e}")
 
 
 def main():
     global previous_price
 
     print("Gold watcher started")
+    print(f"Loaded {len(WEBHOOKS)} webhook(s)")
+
+    if not WEBHOOKS:
+        print("Warning: No webhooks configured. Set WEBHOOKS in .env file.")
 
     while True:
         try:
             current_price = scrape_price()
 
             if previous_price is None or current_price != previous_price:
-                update_pushcut_widget(current_price, previous_price)
-                print(f"Updated: {previous_price} → {current_price}")
+                print(f"Price changed: {previous_price} → {current_price}")
+                update_all_webhooks(current_price, previous_price)
                 previous_price = current_price
             else:
                 print("No change")
