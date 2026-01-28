@@ -3,10 +3,16 @@ import time
 import os
 import re
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 load_dotenv()
+
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+session.mount("https://", HTTPAdapter(max_retries=retries))
 
 WEBHOOKS = json.loads(os.environ.get("WEBHOOKS", "[]"))
 EDAHAH_URL = "https://edahabapp.com/prices-dashboard"
@@ -20,10 +26,14 @@ previous_price = None
 
 
 def scrape_price():
-    r = requests.get(
+    r = session.get(
         EDAHAH_URL,
-        timeout=20,
-        headers={"User-Agent": "Mozilla/5.0"}
+        timeout=30,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
     )
     r.raise_for_status()
 
