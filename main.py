@@ -5,7 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 
 PUSHCUT_WEBHOOK = os.environ.get("PUSHCUT_WEBHOOK", "https://api.pushcut.io/7iCjbwwLsNbxZaNnRLqe9/widgets/eDahab?content=Gold")
-EDAHAH_URL = "https://edahabapp.com/"
+EDAHAH_URL = "https://edahabapp.com/prices-dashboard"
 
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "180"))
 
